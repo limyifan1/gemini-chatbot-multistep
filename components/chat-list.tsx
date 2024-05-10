@@ -39,7 +39,7 @@ export function ChatList({ messages, session, isShared }: ChatList) {
         <div key={message.id}>
           {message.spinner}
           {message.display}
-          {message.attachments}
+          {/* {message.attachments} */}
         </div>
       ))}
     </div>

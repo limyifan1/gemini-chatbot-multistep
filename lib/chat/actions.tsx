@@ -128,6 +128,11 @@ async function describeImage(imageBase64: string) {
   }
 }
 
+const formatGuideRules = [
+  'remove all full stops',
+  'capitalize all first letter of words'
+]
+
 async function submitUserMessage(content: string) {
   'use server'
 
@@ -156,29 +161,33 @@ async function submitUserMessage(content: string) {
   const spinnerStream = createStreamableUI(<SpinnerMessage />)
   const messageStream = createStreamableUI(null)
   const uiStream = createStreamableUI()
-
   ;(async () => {
     try {
-      const result = await experimental_streamText({
-        model: google.generativeAI('models/gemini-1.0-pro-001'),
-        temperature: 0,
-        tools: {},
-        system: `\
-      You are a friendly assistant that helps the user with reformatting meeting briefs based on internal style guides. 
-  
-      The date today is ${format(new Date(), 'd LLLL, yyyy')}. 
-      `,
-        messages: [...history]
-      })
-
       let textContent = ''
+
+      for await (const rule of formatGuideRules) {
+        textContent += `Applying Rule: ${rule}\n\n`
+        const result = await experimental_streamText({
+          model: google.generativeAI('models/gemini-1.0-pro-001'),
+          temperature: 0,
+          tools: {},
+          system: `\
+        Do not engage in conversation. Only reformat what the user inputs. 
+      Your only job is to take in user input which are meeting briefs and reformat it according to the following rule. 
+      Rule: ${rule}
+      `,
+          messages: [...history]
+        })
+
+        for await (const delta of result.fullStream) {
+          const { textDelta } = delta
+          textContent += textDelta || ''
+          messageStream.update(<BotMessage content={textContent} />)
+        }
+        textContent += '\n\n'
+      }
       spinnerStream.done(null)
 
-      for await (const delta of result.fullStream) {
-        const { textDelta } = delta
-        textContent += textDelta || ''
-        messageStream.update(<BotMessage content={textContent} />)
-      }
       aiState.done({
         ...aiState.get(),
         messages: [
@@ -326,10 +335,7 @@ export type UIState = {
 
 export const AI = createAI<AIState, UIState>({
   actions: {
-    submitUserMessage,
-    requestCode,
-    validateCode,
-    describeImage
+    submitUserMessage
   },
   initialUIState: [],
   initialAIState: { chatId: nanoid(), interactions: [], messages: [] },
@@ -382,35 +388,7 @@ export const getUIStateFromAIState = (aiState: Chat) => {
     .map((message, index) => ({
       id: `${aiState.chatId}-${index}`,
       display:
-        message.role === 'assistant' ? (
-          message.display?.name === 'showFlights' ? (
-            <BotCard>
-              <ListFlights summary={message.display.props.summary} />
-            </BotCard>
-          ) : message.display?.name === 'showSeatPicker' ? (
-            <BotCard>
-              <SelectSeats summary={message.display.props.summary} />
-            </BotCard>
-          ) : message.display?.name === 'showHotels' ? (
-            <BotCard>
-              <ListHotels />
-            </BotCard>
-          ) : message.content === 'The purchase has completed successfully.' ? (
-            <BotCard>
-              <PurchaseTickets status="expired" />
-            </BotCard>
-          ) : message.display?.name === 'showBoardingPass' ? (
-            <BotCard>
-              <BoardingPass summary={message.display.props.summary} />
-            </BotCard>
-          ) : message.display?.name === 'listDestinations' ? (
-            <BotCard>
-              <Destinations destinations={message.display.props.destinations} />
-            </BotCard>
-          ) : (
-            <BotMessage content={message.content} />
-          )
-        ) : message.role === 'user' ? (
+        message.role === 'user' ? (
           <UserMessage showAvatar>{message.content}</UserMessage>
         ) : (
           <BotMessage content={message.content} />
