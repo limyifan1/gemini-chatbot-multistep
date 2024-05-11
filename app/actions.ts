@@ -5,7 +5,38 @@ import { redirect } from 'next/navigation'
 import { kv } from '@vercel/kv'
 
 import { auth } from '@/auth'
-import { type Chat } from '@/lib/types'
+import { type Rule, type Chat } from '@/lib/types'
+
+export async function getRules(userId?: string | null) {
+  if (!userId) {
+    return []
+  }
+
+  try {
+    const rules: Rule[] = await kv.zrange(`user:rules:${userId}`, 0, -1, {
+      rev: true
+    })
+
+    return rules
+  } catch (error) {
+    return []
+  }
+}
+
+export async function saveRules(rules: Rule[]) {
+  const session = await auth()
+
+  if (session && session.user) {
+    const pipeline = kv.pipeline()
+    pipeline.zadd(`user:rules:${session.user.id}`, {
+      score: Date.now(),
+      member: rules
+    })
+    await pipeline.exec()
+  } else {
+    return
+  }
+}
 
 export async function getChats(userId?: string | null) {
   if (!userId) {

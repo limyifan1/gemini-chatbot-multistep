@@ -10,6 +10,14 @@ export interface Chat extends Record<string, any> {
   sharePath?: string
 }
 
+export interface Rule extends Record<string, any> {
+  id: string
+  title: string
+  createdAt: Date
+  userId: string
+  content: string
+}
+
 export type ServerActionResult<Result> = Promise<
   | Result
   | {
