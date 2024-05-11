@@ -19,19 +19,10 @@ import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
 import { Chat } from '../types'
 import { auth } from '@/auth'
-import { FlightStatus } from '@/components/flights/flight-status'
-import { SelectSeats } from '@/components/flights/select-seats'
-import { ListFlights } from '@/components/flights/list-flights'
-import { BoardingPass } from '@/components/flights/boarding-pass'
-import { PurchaseTickets } from '@/components/flights/purchase-ticket'
 import { CheckIcon, SpinnerIcon } from '@/components/ui/icons'
-import { format } from 'date-fns'
 import { experimental_streamText } from 'ai'
 import { google } from 'ai/google'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { z } from 'zod'
-import { ListHotels } from '@/components/hotels/list-hotels'
-import { Destinations } from '@/components/flights/destinations'
 import { Video } from '@/components/media/video'
 import { rateLimit } from './ratelimit'
 
@@ -161,30 +152,46 @@ async function submitUserMessage(content: string) {
   const spinnerStream = createStreamableUI(<SpinnerMessage />)
   const messageStream = createStreamableUI(null)
   const uiStream = createStreamableUI()
+  let textContent = ''
+  let currentMessage = content
+
   ;(async () => {
     try {
-      let textContent = ''
-
       for await (const rule of formatGuideRules) {
-        textContent += `Applying Rule: ${rule}\n\n`
+        textContent = ''
+        // textContent += `Applying Rule: ${rule}\n\n`
+        uiStream.update(
+          <BotCard>
+            <b>Applying Rule: {rule}</b>
+          </BotCard>
+        )
+
         const result = await experimental_streamText({
           model: google.generativeAI('models/gemini-1.0-pro-001'),
           temperature: 0,
           tools: {},
           system: `\
-        Do not engage in conversation. Only reformat what the user inputs. 
-      Your only job is to take in user input which are meeting briefs and reformat it according to the following rule. 
-      Rule: ${rule}
-      `,
-          messages: [...history]
+          Do not engage in conversation. Only reformat what the user inputs. 
+          Your only job is to take in user input which are meeting briefs and reformat it according to the following rule. 
+          Rule: ${rule}
+          `,
+          messages: [
+            // ...history,
+            {
+              role: 'user',
+              content: currentMessage
+            }
+          ]
         })
 
         for await (const delta of result.fullStream) {
           const { textDelta } = delta
           textContent += textDelta || ''
+          console.log('messageStream.update', textContent)
           messageStream.update(<BotMessage content={textContent} />)
         }
-        textContent += '\n\n'
+        currentMessage = textContent
+        console.log('messageStream.value!', messageStream.value)
       }
       spinnerStream.done(null)
 
@@ -200,7 +207,6 @@ async function submitUserMessage(content: string) {
         ]
       })
 
-      uiStream.done()
       textStream.done()
       messageStream.done()
     } catch (e) {
