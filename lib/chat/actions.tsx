@@ -190,11 +190,9 @@ async function submitUserMessage(content: string) {
         for await (const delta of result.fullStream) {
           const { textDelta } = delta
           textContent += textDelta || ''
-          console.log('messageStream.update', textContent)
           messageStream.update(<BotMessage content={textContent} />)
         }
         currentMessage = textContent
-        console.log('messageStream.value!', messageStream.value)
       }
       spinnerStream.done(null)
 
