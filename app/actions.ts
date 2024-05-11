@@ -13,29 +13,59 @@ export async function getRules(userId?: string | null) {
   }
 
   try {
-    const rules: Rule[] = await kv.zrange(`user:rules:${userId}`, 0, -1, {
+    const pipeline = kv.pipeline()
+    const rules: string[] = await kv.zrange(`user:rule:${userId}`, 0, -1, {
       rev: true
     })
 
-    return rules
+    for (const rule of rules) {
+      pipeline.hgetall(rule)
+    }
+
+    const results = await pipeline.exec()
+
+    return results as Rule[]
   } catch (error) {
     return []
   }
 }
 
-export async function saveRules(rules: Rule[]) {
+export async function saveRule(rule: Rule) {
   const session = await auth()
 
   if (session && session.user) {
     const pipeline = kv.pipeline()
-    pipeline.zadd(`user:rules:${session.user.id}`, {
+    pipeline.hmset(`rule:${rule.id}`, rule)
+    pipeline.zadd(`user:rule:${rule.userId}`, {
       score: Date.now(),
-      member: rules
+      member: `rule:${rule.id}`
     })
     await pipeline.exec()
   } else {
     return
   }
+}
+
+export async function removeRule({ id }: { id: string }) {
+  const session = await auth()
+
+  if (!session) {
+    return {
+      error: 'Unauthorized'
+    }
+  }
+
+  //Convert uid to string for consistent comparison with session.user.id
+  const uid = String(await kv.hget(`rule:${id}`, 'userId'))
+
+  if (uid !== session?.user?.id) {
+    return {
+      error: 'Unauthorized'
+    }
+  }
+
+  await kv.del(`rule:${id}`)
+  await kv.zrem(`user:rule:${session.user.id}`, `rule:${id}`)
 }
 
 export async function getChats(userId?: string | null) {

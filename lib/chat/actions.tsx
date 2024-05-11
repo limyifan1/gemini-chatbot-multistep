@@ -15,7 +15,7 @@ import {
 import { BotCard, BotMessage } from '@/components/stocks'
 
 import { nanoid, sleep } from '@/lib/utils'
-import { saveChat } from '@/app/actions'
+import { getRules, saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
 import { Chat } from '../types'
 import { auth } from '@/auth'
@@ -119,10 +119,10 @@ async function describeImage(imageBase64: string) {
   }
 }
 
-const formatGuideRules = [
-  'remove all full stops',
-  'capitalize all first letter of words'
-]
+// const formatGuideRules = [
+//   'remove all full stops',
+//   'capitalize all first letter of words'
+// ]
 
 async function submitUserMessage(content: string) {
   'use server'
@@ -154,7 +154,10 @@ async function submitUserMessage(content: string) {
   const uiStream = createStreamableUI()
   let textContent = ''
   let currentMessage = content
+  const session = await auth()
+  const userId = session.user.id as string
 
+  const formatGuideRules = await getRules(userId)
   ;(async () => {
     try {
       for await (const rule of formatGuideRules) {
@@ -162,7 +165,7 @@ async function submitUserMessage(content: string) {
         // textContent += `Applying Rule: ${rule}\n\n`
         uiStream.update(
           <BotCard>
-            <b>Applying Rule: {rule}</b>
+            <b>Applying Rule: {rule.title}</b>
           </BotCard>
         )
 
@@ -173,7 +176,7 @@ async function submitUserMessage(content: string) {
           system: `\
           Do not engage in conversation. Only reformat what the user inputs. 
           Your only job is to take in user input which are meeting briefs and reformat it according to the following rule. 
-          Rule: ${rule}
+          Rule: ${rule.content}
           `,
           messages: [
             // ...history,
@@ -206,6 +209,11 @@ async function submitUserMessage(content: string) {
           }
         ]
       })
+      uiStream.done(
+        <BotCard>
+          <b>Done applying rules</b>
+        </BotCard>
+      )
 
       textStream.done()
       messageStream.done()
