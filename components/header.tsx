@@ -54,12 +54,6 @@ export function Header() {
         <React.Suspense fallback={<div className="flex-1 overflow-auto" />}>
           <UserOrLogin />
         </React.Suspense>
-        <Button variant="link" asChild className="ml-2">
-          <Link href="/">Chat</Link>
-        </Button>
-        <Button variant="link" asChild className="ml-2">
-          <Link href="/rules">Rules</Link>
-        </Button>
       </div>
     </header>
   )

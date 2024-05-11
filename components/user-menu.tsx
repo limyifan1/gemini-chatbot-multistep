@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { signOut } from '@/auth'
+import Link from 'next/link'
 
 export interface UserMenuProps {
   user: Session['user']
@@ -48,6 +49,12 @@ export function UserMenu({ user }: UserMenuProps) {
           </form>
         </DropdownMenuContent>
       </DropdownMenu>
+      <Button variant="link" asChild className="ml-2">
+        <Link href="/">Chat</Link>
+      </Button>
+      <Button variant="link" asChild className="ml-2">
+        <Link href="/rules">Rules</Link>
+      </Button>
     </div>
   )
 }
